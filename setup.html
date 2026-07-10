@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuración inicial — Audioguía Guatapé</title>
+<style>
+  :root{ --bg:#faf6ec; --ink:#332e24; --ink-soft:#8a8168; --ochre:#e3a857; }
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:var(--bg);font-family:Inter,system-ui,sans-serif;color:var(--ink);padding:20px;}
+  .card{background:#fff;border-radius:18px;padding:36px 32px;max-width:400px;width:100%;
+    box-shadow:0 20px 45px -26px rgba(51,46,36,.28);}
+  h1{font-size:19px;margin:0 0 6px;font-weight:800;}
+  p{font-size:13px;color:var(--ink-soft);margin:0 0 20px;line-height:1.5;}
+  label{font-size:12px;font-weight:700;display:block;margin-bottom:6px;}
+  input{width:100%;padding:12px 14px;border:1px solid rgba(51,46,36,.2);border-radius:10px;
+    font-size:15px;box-sizing:border-box;margin-bottom:16px;}
+  button{width:100%;padding:12px;border:none;border-radius:10px;background:var(--ochre);
+    color:#3a2205;font-weight:700;font-size:14px;cursor:pointer;}
+  button:hover{background:#eab568;}
+  button:disabled{opacity:.6;cursor:default;}
+  .err{color:#c0392b;font-size:12.5px;margin-top:-6px;margin-bottom:14px;min-height:16px;}
+  .ok{color:#3a7a4f;font-size:13px;margin-top:10px;}
+  .step{display:none;}
+  .step.active{display:block;}
+  .badge{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin-bottom:10px;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">Paso <span id="stepNum">1</span> de 2</div>
+
+    <div class="step active" id="step1">
+      <h1>Verifica tu contraseña de admin</h1>
+      <p>Es la que definiste como variable de entorno <code>ADMIN_PASSWORD</code> en Vercel.</p>
+      <form id="f1" autocomplete="off">
+        <label>Contraseña de admin</label>
+        <input id="adminPw" type="password" autofocus />
+        <div class="err" id="err1"></div>
+        <button type="submit" id="btn1">Continuar</button>
+      </form>
+    </div>
+
+    <div class="step" id="step2">
+      <h1>Define el código de acceso al sitio</h1>
+      <p>Es lo que tus visitantes deberán escribir para entrar. Puedes cambiarlo luego desde el panel admin, pestaña "Acceso".</p>
+      <form id="f2" autocomplete="off">
+        <label>Código de acceso</label>
+        <input id="accessCode" type="text" placeholder="Ej: guatape-2026" />
+        <div class="err" id="err2"></div>
+        <button type="submit" id="btn2">Guardar y activar</button>
+      </form>
+      <div class="ok" id="ok2" style="display:none;">Listo. Ya puedes ir a la página de inicio con ese código.</div>
+    </div>
+  </div>
+
+<script>
+  var f1 = document.getElementById('f1');
+  var f2 = document.getElementById('f2');
+
+  f1.addEventListener('submit', function(e){
+    e.preventDefault();
+    var pw = document.getElementById('adminPw').value;
+    var btn = document.getElementById('btn1');
+    var err = document.getElementById('err1');
+    err.textContent = '';
+    btn.disabled = true;
+    fetch('/api/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ password: pw })
+    }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(res){
+        btn.disabled = false;
+        if(res.ok && res.data.ok){
+          document.getElementById('step1').classList.remove('active');
+          document.getElementById('step2').classList.add('active');
+          document.getElementById('stepNum').textContent = '2';
+        } else if (res.data.error === 'not_configured') {
+          err.textContent = 'Falta configurar ADMIN_PASSWORD o SESSION_SECRET en Vercel.';
+        } else {
+          err.textContent = 'Contraseña incorrecta.';
+        }
+      }).catch(function(){ btn.disabled = false; err.textContent = 'Error de conexión.'; });
+  });
+
+  f2.addEventListener('submit', function(e){
+    e.preventDefault();
+    var code = document.getElementById('accessCode').value.trim();
+    var btn = document.getElementById('btn2');
+    var err = document.getElementById('err2');
+    err.textContent = '';
+    if(!code) return;
+    btn.disabled = true;
+    fetch('/api/set-access-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ code: code })
+    }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(res){
+        btn.disabled = false;
+        if(res.ok && res.data.ok){
+          document.getElementById('ok2').style.display = 'block';
+          f2.style.display = 'none';
+        } else {
+          err.textContent = 'No se pudo guardar. Intenta de nuevo.';
+        }
+      }).catch(function(){ btn.disabled = false; err.textContent = 'Error de conexión.'; });
+  });
+</script>
+</body>
+</html>

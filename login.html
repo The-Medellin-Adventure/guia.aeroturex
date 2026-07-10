@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acceso — Audioguía Guatapé</title>
+<style>
+  :root{ --bg:#faf6ec; --ink:#332e24; --ink-soft:#8a8168; --ochre:#e3a857; }
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:var(--bg);font-family:Inter,system-ui,sans-serif;color:var(--ink);padding:20px;}
+  .card{background:#fff;border-radius:18px;padding:36px 32px;max-width:360px;width:100%;
+    box-shadow:0 20px 45px -26px rgba(51,46,36,.28);text-align:center;}
+  h1{font-size:19px;margin:0 0 8px;font-weight:800;}
+  p{font-size:13px;color:var(--ink-soft);margin:0 0 22px;line-height:1.5;}
+  input{width:100%;padding:12px 14px;border:1px solid rgba(51,46,36,.2);border-radius:10px;
+    font-size:15px;box-sizing:border-box;margin-bottom:12px;text-align:center;}
+  button{width:100%;padding:12px;border:none;border-radius:10px;background:var(--ochre);
+    color:#3a2205;font-weight:700;font-size:14px;cursor:pointer;}
+  button:hover{background:#eab568;}
+  button:disabled{opacity:.6;cursor:default;}
+  .err{color:#c0392b;font-size:12.5px;margin-top:10px;min-height:16px;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Audioguía Medellín–Guatapé</h1>
+    <p>Ingresa el código de acceso para continuar.</p>
+    <form id="f" autocomplete="off">
+      <input id="code" type="password" placeholder="Código de acceso" autofocus />
+      <button type="submit" id="btn">Entrar</button>
+      <div class="err" id="err"></div>
+    </form>
+  </div>
+<script>
+  var params = new URLSearchParams(location.search);
+  var next = params.get('next') || '/';
+  var form = document.getElementById('f');
+  var btn = document.getElementById('btn');
+  var errEl = document.getElementById('err');
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var code = document.getElementById('code').value.trim();
+    errEl.textContent = '';
+    if(!code) return;
+    btn.disabled = true;
+    fetch('/api/verify-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ code: code })
+    }).then(function(r){
+      return r.json().then(function(data){ return { ok: r.ok, data: data }; });
+    }).then(function(res){
+      if(res.ok && res.data.ok){
+        location.href = next;
+      } else if (res.data.error === 'no_access_code_configured') {
+        errEl.textContent = 'Aún no se ha configurado un código de acceso. Contacta al administrador.';
+      } else {
+        errEl.textContent = 'Código incorrecto.';
+      }
+      btn.disabled = false;
+    }).catch(function(){
+      errEl.textContent = 'Error de conexión, intenta de nuevo.';
+      btn.disabled = false;
+    });
+  });
+</script>
+</body>
+</html>
